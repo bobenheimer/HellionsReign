@@ -3,8 +3,18 @@
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
         <title>Insert Creative Title</title>
+        <link type="text/css" rel="stylesheet" href="style/main.css">
+        <script src="javascript/engine.js"></script> 
     </head>
     <body>
-        FUN
+        <div id="main">
+            <canvas id="background-top" height="700" width="600"></canvas>
+            <canvas id="objects" height="700" width="600"></canvas>
+            <canvas id="hud" height="700" width="600"></canvas>
+        </div>
     </body>
+    <script type="application/javascript">
+        var test = new Test();
+        test.draw();
+    </script>
 </html>

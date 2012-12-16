@@ -1,0 +1,23 @@
+@CHARSET "ISO-8859-1";
+
+/*--------------------------------Main----------------------------------------- */
+#main {
+    position: relative;
+    height: 700px;
+    width: 600px;
+    background: #eee;
+}
+#main canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+ }
+ 
+#background-top {
+    z-index: 1;
+}
+
+#objects {
+
+    z-index: 2;
+}
