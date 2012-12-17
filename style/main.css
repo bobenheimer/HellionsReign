@@ -21,3 +21,7 @@
 
     z-index: 2;
 }
+
+#game-images {
+    display: none;
+}
