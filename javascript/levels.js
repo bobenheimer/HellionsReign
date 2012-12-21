@@ -2,7 +2,7 @@ levels = [
     {
         waves: [
             {
-                shipsPerRow: [8, 8, 8],
+                shipsPerRow: [10, 9, 8, 7],
                 
             },
         ],

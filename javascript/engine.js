@@ -1,4 +1,6 @@
-
+Array.max = function( array ){
+    return Math.max.apply( Math, array );
+};
 
 /*
  * shmupApp just stores global variables in a closure (http://stackoverflow.com/questions/111102/how-do-javascript-closures-work)
@@ -57,6 +59,7 @@ Engine.prototype.start = function(args) {
     setInterval(function() {
         //console.time('foo');
         this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
+        
         for (var i = this.waves.length - 1; i >= 0; i--) {
             if(this.waves[i].enemies.length === 0) {
                 this.waves.splice(i, 1);
@@ -345,27 +348,29 @@ var Wave = function(args) {
     //what do we want?
     //number of ships per each row, padding
     //if all else fails, allow a list of: (enemies passed in)
+    var x, y, startX;
     this.shmup = args.shmup;
     this.enemyShipImage = document.getElementById("enemy-ship");
     this.enemies = [];
-    //var spacing = 
-    var spacing, x, y;
     args.padding = args.padding || 50;
     args.vpadding = args.vpadding || 5;
+    
+    var spacing = (this.shmup.width - 2 * args.padding) / Array.max(args.shipsPerRow);
+    //console.log(spacing);
     for(var i = 0; i < args.shipsPerRow.length; i++) {
-        spacing = (this.shmup.width - 2 * args.padding) / args.shipsPerRow[i];
-        //console.log(spacing);
+        startX = this.shmup.width / 2 - ((args.shipsPerRow[i] - 1) / 2) * spacing - (this.enemyShipImage.height / 2);
         for (var j = 0; j < args.shipsPerRow[i]; j++) {
             this.enemies[this.enemies.length] = new Enemy({
                 image: this.enemyShipImage, 
                 height: this.enemyShipImage.height, 
                 width: this.enemyShipImage.width,
-                x: args.padding + j * spacing,
+                x: startX + j * spacing,
                 y: args.vpadding + i * this.enemyShipImage.height,
                 updateFunction: function() {
                    this.y += 1;  
                 }
             });  
+            console.log(startX + j * spacing);
         }
     }
     /*
