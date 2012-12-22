@@ -25,9 +25,13 @@ var Engine = function() {
     this.player = new Player({shmup: this.shmup});
     this.frame = 0;
     
-    this.waves = [];
-    this.level = levels[0];
-    this.waves[0] = new Wave({shmup: this.shmup, shipsPerRow: this.level.waves[0].shipsPerRow});
+    for (var i = 0; i < levels.length; i++) {
+        levels[i].shmup = this.shmup;
+    }
+
+
+    this.level = new Level(levels[0]);
+    //this.waves[0] = new Wave({shmup: this.shmup, shipsPerRow: this.level.waves[0].shipsPerRow});
     //this.waves[0] = new Wave({shmup: this.shmup});
     
     /*-----------------ADD HANDLERS FOR KEYPRESSING-----------------*/
@@ -59,19 +63,14 @@ Engine.prototype.start = function(args) {
         //console.time('foo');
         this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
         
-        //delete
-        for (var i = this.waves.length - 1; i >= 0; i--) {
-            if(this.waves[i].enemies.length === 0) {
-                this.waves.splice(i, 1);
-            }
-            else {
-                this.checkForCollisions({firstList: this.waves[i].enemies, secondList: this.player.projectiles});
-                this.waves[i].draw({canvas: this.shmup.objectCanvas});                  
-            }
-  
+        /*---------------CHECK FOR COLLISIONS ---------------------- */
+        for (var i = 0; i < this.level.spawnedWaves.length; i++) {
+            this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: this.player.projectiles});
         }
-        //delete
-        this.player.draw(); 
+
+        this.level.update(); //draw waves of enemies
+        
+        this.player.draw();  //draw player
         this.frame += 1;
         //console.timeEnd('foo'); 
     }.bind(this), 20); 
@@ -357,7 +356,7 @@ var Wave = function(args) {
     args.vpadding = args.vpadding || 5;
     var longestRow = (Array.max(args.shipsPerRow));
     var spacing = (this.shmup.width - 2 * args.padding) / (longestRow + 1);
-   // console.log(spacing);
+    //console.log(args);
     for(var i = 0; i < args.shipsPerRow.length; i++) {
         //startX = this.shmup.width / 2 - ((args.shipsPerRow[i] - 1) / 2) * spacing - (this.enemyShipImage.height / 2);
         startX = args.padding + spacing + ((longestRow - args.shipsPerRow[i]) / 2) * spacing - (this.enemyShipImage.height / 2);
@@ -373,7 +372,7 @@ var Wave = function(args) {
                    this.y += 1;  
                 }
             });  
-            console.log(startX + j * spacing);
+            //console.log(startX + j * spacing);
         }
     }
 
@@ -392,20 +391,40 @@ Wave.prototype.draw = function(args) {
 
 
 var Level = function(args) {
+    this.shmup = args.shmup;
     this.waves = [];
+    this.spawnedWaves = [];
+    this.lastWaveFrame = 0;
+    this.nextWaveIndex = 0;
+    for (var i = 0; i < args.waves.length; i++) {
+        this.waves[i] = args.waves[i];
+    }
+
 };
 
 Level.prototype.update = function(args) {
     //check if we need to spawn new waves
     //check if we need to delete waves
-    for (var i = this.waves.length - 1; i >= 0; i--) {
-        if(this.waves[i].enemies.length === 0) {
-            this.waves.splice(i, 1);
+    //console.log(this.waves[this.nextWaveIndex]);
+    if (this.waves[this.nextWaveIndex] && this.lastWaveFrame++ === this.waves[this.nextWaveIndex].spawnTime) {
+        this.lastWaveFrame = 0;
+        this.spawnedWaves[this.nextWaveIndex] = 
+            new Wave({
+                shmup: this.shmup, 
+                shipsPerRow: this.waves[this.nextWaveIndex].shipsPerRow
+                });;
+        this.nextWaveIndex++;
+    }
+    
+    for (var i = this.spawnedWaves.length - 1; i >= 0; i--) {
+        if(this.spawnedWaves[i].enemies.length === 0) {
+            this.spawnedWaves.splice(i, 1);
         }
         else {
-            this.checkForCollisions({firstList: this.waves[i].enemies, secondList: this.player.projectiles});
-            this.waves[i].draw({canvas: this.shmup.objectCanvas});                  
+            this.spawnedWaves[i].draw({canvas: this.shmup.objectCanvas});                  
         }
 
     }
 };
+
+
