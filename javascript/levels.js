@@ -1,26 +1,25 @@
 levels = [
-    {
+    {   
         waves: [
             {
-                shipsPerRow: [10, 9, 8, 7],
+                shipsPerRow: [8, 6, 4],
+                waitForPreviousSpawn: false,
+                spawnTime: 10
                 
             },
-        ],
-        timing: [10, 160, 160, 160, 160]                
+            {
+                shipsPerRow: [1],
+                waitForPreviousSpawn: true,
+                spawnTime: 100
+            }
+        ],            
     }, 
+             
+          
+         
           
           
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
+            
           
           
           

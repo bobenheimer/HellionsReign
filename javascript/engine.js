@@ -27,7 +27,6 @@ var Engine = function() {
     
     this.waves = [];
     this.level = levels[0];
-    
     this.waves[0] = new Wave({shmup: this.shmup, shipsPerRow: this.level.waves[0].shipsPerRow});
     //this.waves[0] = new Wave({shmup: this.shmup});
     
@@ -60,6 +59,7 @@ Engine.prototype.start = function(args) {
         //console.time('foo');
         this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
         
+        //delete
         for (var i = this.waves.length - 1; i >= 0; i--) {
             if(this.waves[i].enemies.length === 0) {
                 this.waves.splice(i, 1);
@@ -70,6 +70,7 @@ Engine.prototype.start = function(args) {
             }
   
         }
+        //delete
         this.player.draw(); 
         this.frame += 1;
         //console.timeEnd('foo'); 
@@ -123,8 +124,8 @@ var Player = function(args) {
     this.fireFrameOffset = 0; //the frame offset of when we started firing
     
     this.moveSensitivity = 10; //the amount in px to move on each frame update, the higher the more sensitive
-    this.x = 100; //start x and y
-    this.y = 600;
+    this.x = this.shmup.width / 2  - this.ship.width / 2; //start x and y
+    this.y = this.shmup.height - this.ship.height;
         
     //how much to move the player by on the next frame
     this.moveX = 0;
@@ -348,17 +349,19 @@ var Wave = function(args) {
     //what do we want?
     //number of ships per each row, padding
     //if all else fails, allow a list of: (enemies passed in)
-    var x, y, startX;
+    var startX;
     this.shmup = args.shmup;
     this.enemyShipImage = document.getElementById("enemy-ship");
     this.enemies = [];
     args.padding = args.padding || 50;
     args.vpadding = args.vpadding || 5;
-    
-    var spacing = (this.shmup.width - 2 * args.padding) / Array.max(args.shipsPerRow);
-    //console.log(spacing);
+    var longestRow = (Array.max(args.shipsPerRow));
+    var spacing = (this.shmup.width - 2 * args.padding) / (longestRow + 1);
+   // console.log(spacing);
     for(var i = 0; i < args.shipsPerRow.length; i++) {
-        startX = this.shmup.width / 2 - ((args.shipsPerRow[i] - 1) / 2) * spacing - (this.enemyShipImage.height / 2);
+        //startX = this.shmup.width / 2 - ((args.shipsPerRow[i] - 1) / 2) * spacing - (this.enemyShipImage.height / 2);
+        startX = args.padding + spacing + ((longestRow - args.shipsPerRow[i]) / 2) * spacing - (this.enemyShipImage.height / 2);
+        //console.log(startX); //shuld be 216.67
         for (var j = 0; j < args.shipsPerRow[i]; j++) {
             this.enemies[this.enemies.length] = new Enemy({
                 image: this.enemyShipImage, 
@@ -373,25 +376,12 @@ var Wave = function(args) {
             console.log(startX + j * spacing);
         }
     }
-    /*
-    for (var i = 50; i < args.shmup.width; i += 50) {
-        this.enemies[this.enemies.length] = new Enemy({
-            image: this.enemyShipImage, 
-            height: this.enemyShipImage.height, 
-            width: this.enemyShipImage.width,
-            x: i,
-            y: -20,
-            updateFunction: function() {
-               this.y += 1;  
-            }
-        });  
-    } */
 
 };
 
 Wave.prototype.draw = function(args) {
     for (var i = this.enemies.length - 1; i >= 0; i--) {
-        if ((this.enemies[i].y + this.enemies[i].height) > this.shmup.height || this.enemies[i].isDestroyed()) {
+        if (this.enemies[i].y > this.shmup.height || this.enemies[i].isDestroyed()) {
             this.enemies.splice(i, 1);
         }
         else {
@@ -400,3 +390,22 @@ Wave.prototype.draw = function(args) {
     }
 };
 
+
+var Level = function(args) {
+    this.waves = [];
+};
+
+Level.prototype.update = function(args) {
+    //check if we need to spawn new waves
+    //check if we need to delete waves
+    for (var i = this.waves.length - 1; i >= 0; i--) {
+        if(this.waves[i].enemies.length === 0) {
+            this.waves.splice(i, 1);
+        }
+        else {
+            this.checkForCollisions({firstList: this.waves[i].enemies, secondList: this.player.projectiles});
+            this.waves[i].draw({canvas: this.shmup.objectCanvas});                  
+        }
+
+    }
+};
