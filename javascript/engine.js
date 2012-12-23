@@ -60,7 +60,7 @@ var Engine = function() {
  */
 Engine.prototype.start = function(args) {
     setInterval(function() {
-        //console.time('foo');
+        console.time('foo');
         this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
         
         /*---------------CHECK FOR COLLISIONS ---------------------- */
@@ -72,7 +72,7 @@ Engine.prototype.start = function(args) {
         
         this.player.draw();  //draw player
         this.frame += 1;
-        //console.timeEnd('foo'); 
+        console.timeEnd('foo'); 
     }.bind(this), 20); 
 };
 
@@ -114,7 +114,7 @@ var Player = function(args) {
     this.cannonOffsetLocations = []; //the location of the cannons relative to the player ship
 
     this.firing = false; //every frame we check if we are firing
-    this.switchCannon({rate: 5, cannonOffsetLocations: [0.5], 
+    this.switchCannon({rate: 5, cannonOffsetLocations: [0.3, 0.5, 0.7], 
         updateFunction: function() {
             //this.x += Math.sin(this.y / 10) * 15;
             this.y -= 10;
@@ -334,11 +334,14 @@ var Projectile = function(args) {
 
 Projectile.prototype = Object.create(ShmupObject.prototype); //Projectile extends ShmupObject
 
+//should make a suerclass called FiringObject that Enemy and Player both extend
 var Enemy = function(args) {
     ShmupObject.call(this, args);
+    this.projectiles = [];
 };
 
 Enemy.prototype = Object.create(ShmupObject.prototype); //Enemy extends Shmup Object
+
 
 /**
  * A wave of enemy ships, right now all it does is make a line of them
@@ -348,12 +351,14 @@ var Wave = function(args) {
     //what do we want?
     //number of ships per each row, padding
     //if all else fails, allow a list of: (enemies passed in)
-    var startX;
+    var startX, offsetY;
     this.shmup = args.shmup;
     this.enemyShipImage = document.getElementById("enemy-ship");
     this.enemies = [];
     args.padding = args.padding || 50;
     args.vpadding = args.vpadding || 5;
+    offsetY = (args.shipsPerRow.length - 1) * args.vpadding + args.shipsPerRow.length * this.enemyShipImage.height;
+    console.log(offsetY);
     var longestRow = (Array.max(args.shipsPerRow));
     var spacing = (this.shmup.width - 2 * args.padding) / (longestRow + 1);
     //console.log(args);
@@ -367,7 +372,7 @@ var Wave = function(args) {
                 height: this.enemyShipImage.height, 
                 width: this.enemyShipImage.width,
                 x: startX + j * spacing,
-                y: args.vpadding + i * this.enemyShipImage.height,
+                y: args.vpadding + i * this.enemyShipImage.height - offsetY,
                 updateFunction: function() {
                    this.y += 1;  
                 }
@@ -403,18 +408,27 @@ var Level = function(args) {
 };
 
 Level.prototype.update = function(args) {
+	if(this.waves[this.nextWaveIndex]) {
+		if(this.waves[this.nextWaveIndex].waitForPreviousSpawn && this.spawnedWaves.length === 0) {
+			this.lastWaveFrame = 0;
+			this.waves[this.nextWaveIndex].waitForPreviousSpawn = false;
+		}
+		if (!this.waves[this.nextWaveIndex].waitForPreviousSpawn && this.lastWaveFrame === this.waves[this.nextWaveIndex].spawnTime) {
+	        this.lastWaveFrame = 0;
+	        this.spawnedWaves[this.spawnedWaves.length] = 
+	            new Wave({
+	                shmup: this.shmup, 
+	                shipsPerRow: this.waves[this.nextWaveIndex].shipsPerRow
+	                });;
+	        this.nextWaveIndex++;
+		}
+	}
+	else {
+		//level is over almost
+	}
     //check if we need to spawn new waves
     //check if we need to delete waves
     //console.log(this.waves[this.nextWaveIndex]);
-    if (this.waves[this.nextWaveIndex] && this.lastWaveFrame++ === this.waves[this.nextWaveIndex].spawnTime) {
-        this.lastWaveFrame = 0;
-        this.spawnedWaves[this.nextWaveIndex] = 
-            new Wave({
-                shmup: this.shmup, 
-                shipsPerRow: this.waves[this.nextWaveIndex].shipsPerRow
-                });;
-        this.nextWaveIndex++;
-    }
     
     for (var i = this.spawnedWaves.length - 1; i >= 0; i--) {
         if(this.spawnedWaves[i].enemies.length === 0) {
@@ -425,6 +439,7 @@ Level.prototype.update = function(args) {
         }
 
     }
+	this.lastWaveFrame++;
 };
 
 

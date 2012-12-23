@@ -9,15 +9,20 @@ levels = [
             },
             {
                 shipsPerRow: [6, 6, 6],
-                waitForPreviousSpawn: true,
+                waitForPreviousSpawn: false,
                 spawnTime: 200
             },            
             {
                 shipsPerRow: [10, 10],
-                waitForPreviousSpawn: true,
+                waitForPreviousSpawn: false,
                 spawnTime: 200
+            },
+            {
+                shipsPerRow: [8, 8, 8, 8],
+                waitForPreviousSpawn: true,
+                spawnTime: 100
             }
-        ],            
+        ]          
     }, 
              
           
