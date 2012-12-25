@@ -1,3 +1,5 @@
+//BUG: if an enemy is destroyed and still has projectiles we still collision detect
+
 Array.max = function( array ){
     return Math.max.apply( Math, array );
 };
@@ -22,13 +24,12 @@ var shmupApp = function() {
 var Engine = function() {
     this.shmup = shmupApp();
     
-    this.player = new Player({shmup: this.shmup});
+    this.player = new Player({shmup: this.shmup, image: document.getElementById("player-ship"), updateFunction: function(){}});
     this.frame = 0;
     
     for (var i = 0; i < levels.length; i++) {
         levels[i].shmup = this.shmup;
     }
-
 
     this.level = new Level(levels[0]);
     //this.waves[0] = new Wave({shmup: this.shmup, shipsPerRow: this.level.waves[0].shipsPerRow});
@@ -63,21 +64,27 @@ Engine.prototype.start = function(args) {
         //console.time('foo');
         this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
         
+
         /*---------------CHECK FOR COLLISIONS ---------------------- */
         for (var i = 0; i < this.level.spawnedWaves.length; i++) {
             this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: this.player.projectiles});
+            for (var j = 0; j < this.level.spawnedWaves[i].enemies.length; j++) {
+                this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies[j].projectiles, secondList: [this.player]}); 
+            }
+        }
+        
+        this.level.update(); //draw waves of enemies
+        if (!this.player.isDestroyed()) {
+            this.player.draw();  //draw player
         }
 
-        this.level.update(); //draw waves of enemies
-        
-        this.player.draw();  //draw player
         this.frame += 1;
         //console.timeEnd('foo'); 
     }.bind(this), 20); 
 };
 
 
-//each fiedl must have a width a height, x, y, and a.collision
+//each fiedl must have a width a height, x, y, and a .collision
 Engine.prototype.checkForCollisions = function(args) {
     var firstList = args.firstList;
     var secondList = args.secondList;
@@ -100,41 +107,64 @@ Engine.prototype.intersectRect = function(args) {
             args.r2.bottom < args.r1.top);
 };
 
+/**
+ * Super Class for any generic drawn Object that follows a set pattern(ie projectile, enemy ship
+ * @param args.updateFunction a callback function to be run every time the object is redrawn (might redo the way this is done too)
+ */
+var ShmupObject = function(args) {
+    this.shmup = args.shmup;
+    this.image = args.image;
+    this.height = this.image.height;
+    this.width = this.image.width;
+    this.y = args.y;
+    this.x = args.x;
+    this.updateFunction = args.updateFunction.bind(this);
+    this.destroyed = false;
+};
+
+ShmupObject.prototype.draw = function(args) {
+    this.updateFunction();
+    args.canvas.drawImage(this.image, this.x, this.y);
+};
+
+ShmupObject.prototype.collision = function(args) {
+    this.destroyed = true;
+};
+
+ShmupObject.prototype.isDestroyed = function(args) {
+    return this.destroyed;
+};
 
 var FiringObject = function(args) {
-    this.shmup = args.shmup;
+    ShmupObject.call(this, args);
     
     /*------------GET IMAGES--------------- */
-    var shipImage = args.image;
     this.projectile = document.getElementById("projectile");
-    this.ship = new PlayerShip({image: shipImage});
     
     this.projectiles = []; //all of the projectiles the PLAYER has firing on the screen
     this.newProjectiles = []; //new projectiles that will be added on the next frame refresh
     this.cannonOffsetLocations = []; //the location of the cannons relative to the object
 
     this.firing = false; //every frame we check if we are firing
-    this.switchCannon({rate: 15, cannonOffsetLocations: [0.5], 
+    this.switchCannon({rate: 40, cannonOffsetLocations: [0.5], 
         ProjectileUpdateFunction: function() {
-            //this.x += Math.sin(this.y / 10) * 15;
+            //this.x += 1000 * Math.sin(this.y / 10);
             this.y += 5;
-    }});
+        }
+    });
     
     this.fireFrameOffset = 0; //the frame offset of when we started firing
-    this.x = args.x;
-    this.y = args.y;
-    this.height = shipImage.height;
-    this.width = shipImage.width;
 
 };
+
+FiringObject.prototype = Object.create(ShmupObject.prototype); 
 
 FiringObject.prototype.fireOff = function(args) {
     this.firing = false;
 };
 
 FiringObject.prototype.fireOn = function(args) {
-    if (!this.firing) {
-        //this.fireFrameOffset = args.frame % this.rate;
+    if (!this.firing && !this.destroyed) {
         this.fireFrameOffset = 0;
         this.firing = true;        
     }
@@ -160,7 +190,13 @@ FiringObject.prototype.drawProjectiles = function(args) {
             this.projectiles[i].draw({canvas: this.shmup.objectCanvas});
         }
     }
-
+    //if there are new projectiles, add them to the list
+    /*if (this.newProjectiles.length) {
+        for (i = 0; i < this.newProjectiles.length; i++) {
+                this.newProjectiles[i].draw({canvas: this.shmup.objectCanvas});                           
+        }
+        this.projectiles = this.projectiles.concat(this.newProjectiles.splice(0, this.newProjectiles.length));
+    }*/
     this.fireFrameOffset++;
 };
 
@@ -170,14 +206,14 @@ FiringObject.prototype.switchCannon = function(args) {
     this.ProjectileUpdateFunction = args.ProjectileUpdateFunction;
     for (var i = 0; i < this.numberOfGuns; i++) {
         //this.cannonOffsetLocations[i] = (i + 1) * 1 / (this.numberOfGuns + 1); //default
-        this.cannonOffsetLocations[i] =  this.ship.width * locations[i];
+        this.cannonOffsetLocations[i] =  this.width * locations[i];
     }
     this.rate = args.rate;
 };
 
 FiringObject.prototype.addProjectiles = function() {
     for (var i = 0; i < this.numberOfGuns; i++) {
-        this.newProjectiles[i] = new Projectile({
+        this.newProjectiles[i] = new ShmupObject({
             image: this.projectile, 
             height: this.projectile.height, 
             width: this.projectile.width,
@@ -188,38 +224,34 @@ FiringObject.prototype.addProjectiles = function() {
     
 };
 
+FiringObject.prototype.draw = function(args) {
+    this.updateFunction();
+    this.drawProjectiles();
+    this.shmup.objectCanvas.drawImage(this.image, this.x, this.y);
+};
+
 /**
  * Class for the human player
  */
 var Player = function(args) {
-    this.shmup = args.shmup;
+    FiringObject.call(this, args);
     
-    /*------------GET IMAGES--------------- */
-    var playerShip = document.getElementById("player-ship");
-    this.projectile = document.getElementById("projectile");
-    this.ship = new PlayerShip({image: playerShip});
-    
-    this.projectiles = []; //all of the projectiles the PLAYER has firing on the screen
-    this.newProjectiles = []; //new projectiles that will be added on the next frame refresh
-    this.cannonOffsetLocations = []; //the location of the cannons relative to the player ship
-
-    this.firing = false; //every frame we check if we are firing
-    this.switchCannon({rate: 5, cannonOffsetLocations: [0.3, 0.5, 0.7], 
+    this.switchCannon({rate: 8, cannonOffsetLocations: [0.5], 
         ProjectileUpdateFunction: function() {
-            //this.x += Math.sin(this.y / 10) * 15;
+            this.x += 5 * Math.sin(this.y / 50);
             this.y -= 10;
     }});
-    
-    this.fireFrameOffset = 0; //the frame offset of when we started firing
-    
+        
     this.moveSensitivity = 10; //the amount in px to move on each frame update, the higher the more sensitive
-    this.x = this.shmup.width / 2  - this.ship.width / 2; //start x and y
-    this.y = this.shmup.height - this.ship.height;
+    this.x = this.shmup.width / 2  - this.width / 2; //start x and y
+    this.y = this.shmup.height - this.height;
         
     //how much to move the player by on the next frame
     this.moveX = 0;
     this.moveY = 0;
 };
+
+Player.prototype = Object.create(FiringObject.prototype);
 
 /**
  * Move the player with the keycode as input
@@ -258,97 +290,11 @@ Player.prototype.stopMove = function(args) {
 
 };
 
-/**
- * start firing, meaning on the next frame we start drawing projectiles from the player ship
- * @param args
- */
-Player.prototype.fireOn = function(args) {
-    if (!this.firing) {
-        //this.fireFrameOffset = args.frame % this.rate;
-        this.fireFrameOffset = 0;
-        this.firing = true;        
-    }
-};
-
-/**
- * stop firing
- */
-Player.prototype.fireOff = function() {
-    this.firing = false;
-};
-
-/**
- * Add projectiles that the player is firing
- */
-Player.prototype.addProjectiles = function() {
-    for (var i = 0; i < this.numberOfGuns; i++) {
-        this.newProjectiles[i] = new Projectile({
-            image: this.projectile, 
-            height: this.projectile.height, 
-            width: this.projectile.width,
-            x: this.x + this.cannonOffsetLocations[i],
-            y: this.y,
-            updateFunction: this.ProjectileUpdateFunction});
-    }
-    
-};
-
-/**
- * Draw all the player projectiles
- * @param args
- */
-Player.prototype.drawProjectiles = function(args) {
-    var i;
-
-    if (this.firing && this.fireFrameOffset % this.rate === 0) {
-        this.addProjectiles();
-    }
-    
-    //add new Projectiles to the list
-    for (i = 0; i < this.newProjectiles.length; i++) {
-        this.projectiles = this.projectiles.concat(this.newProjectiles.splice(0, this.newProjectiles.length));                          
-    }
-    
-    for (i = this.projectiles.length - 1; i >= 0; i--) {
-        if (this.projectiles[i].y < 0 || this.projectiles[i].isDestroyed()) {
-            this.projectiles.splice(i, 1);
-        }
-        else {
-            this.projectiles[i].draw({canvas: this.shmup.objectCanvas});
-        }
-    }
-    //if there are new projectiles, add them to the list
-    /*if (this.newProjectiles.length) {
-        for (i = 0; i < this.newProjectiles.length; i++) {
-                this.newProjectiles[i].draw({canvas: this.shmup.objectCanvas});                           
-        }
-        this.projectiles = this.projectiles.concat(this.newProjectiles.splice(0, this.newProjectiles.length));
-    }*/
-    this.fireFrameOffset++;
-};
-
-/**
- * switch cannon
- * @param args.cannonOffsetLocations a List of the offset positions of the cannon [0.1, 0.9] are far apart [0.4, 0.6] close together
- * 
- */
-Player.prototype.switchCannon = function(args) {
-    var locations = args.cannonOffsetLocations;
-    this.numberOfGuns = locations.length;
-    this.ProjectileUpdateFunction = args.ProjectileUpdateFunction;
-    for (var i = 0; i < this.numberOfGuns; i++) {
-        //this.cannonOffsetLocations[i] = (i + 1) * 1 / (this.numberOfGuns + 1); //default
-        this.cannonOffsetLocations[i] =  this.ship.width * locations[i];
-    }
-    this.rate = args.rate;
-};
-
 Player.prototype.draw = function(args) {       
     this.updateKeyboardLocation();
-    //this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
     
     /*-------------------DRAW STUFF----------------------------*/
-    this.ship.draw({x: this.x, y: this.y, canvas: this.shmup.objectCanvas});
+    this.shmup.objectCanvas.drawImage(this.image, this.x, this.y);
     this.drawProjectiles(args);
 
 };
@@ -361,94 +307,36 @@ Player.prototype.updateKeyboardLocation = function() {
     this.y = this.moveY * this.moveSensitivity + this.y;  
    
     /*-------------------Don't go off the canvas------------------*/
-    if ((this.x + this.ship.width) > this.shmup.width) {
-        this.x = (this.shmup.width - this.ship.width);
+    if ((this.x + this.width) > this.shmup.width) {
+        this.x = (this.shmup.width - this.width);
     }
     else if (this.x < 0) {
         this.x = 0;
     }
-    if ((this.y + this.ship.height) > this.shmup.height) {
-        this.y = (this.shmup.height - this.ship.height);
+    if ((this.y + this.height) > this.shmup.height) {
+        this.y = (this.shmup.height - this.height);
     }
     else if(this.y < 0) {
         this.y = 0;
     }
 };
 
-var PlayerShip = function(args) {
-    this.image = args.image;
-    this.height = this.image.height;
-    this.width = this.image.width;
-};
-
-PlayerShip.prototype.draw = function(args) {
-    this.x = args.x || this.x;
-    this.y = args.y || this.y;
-    args.canvas.drawImage(this.image, this.x, this.y);
-};
-
-/**
- * Super Class for any generic drawn Object that follows a set pattern(ie projectile, enemy ship
- * @param args.updateFunction a callback function to be run every time the object is redrawn (might redo the way this is done too)
- */
-var ShmupObject = function(args) {
-    this.image = args.image;
-    this.height = this.image.height;
-    this.width = this.image.width;
-    this.y = args.y;
-    this.x = args.x;
-    this.updateFunction = args.updateFunction.bind(this);
-    this.destroyed = false;
-};
-
-
-ShmupObject.prototype.draw = function(args) {
-    this.updateFunction();
-    //this.x = args.x || this.x;
-    //this.y = args.y || this.y;
-    args.canvas.drawImage(this.image, this.x, this.y);
-};
-
-ShmupObject.prototype.collision = function(args) {
-    this.destroyed = true;
-};
-
-ShmupObject.prototype.isDestroyed = function(args) {
-    return this.destroyed;
-};
-
-var Projectile = function(args) {
-    ShmupObject.call(this, args);
-    //this.rate = args.rate; //every x frames fire a shot
-};
-
-Projectile.prototype = Object.create(ShmupObject.prototype); //Projectile extends ShmupObject
 
 var Enemy = function(args) {
     FiringObject.call(this, args);
-    this.updateFunction = args.updateFunction.bind(this);
-    this.destroyed = false;
 };
 
 Enemy.prototype = Object.create(FiringObject.prototype); //Enemy extends Shmup Object
 
-Enemy.prototype.draw = function(args) {
-    this.updateFunction();
-    this.drawProjectiles();
-    //this.x = args.x || this.x;
-    //this.y = args.y || this.y;
-    //args.canvas.drawImage(this.image, this.x, this.y);
-    this.ship.draw({x: this.x, y: this.y, canvas: this.shmup.objectCanvas});
+Enemy.prototype.collision = function(args) {
+    this.destroyed = true;
+    this.firing = false;
 };
 
 Enemy.prototype.collision = function(args) {
     this.destroyed = true;
+    this.firing = false;
 };
-
-Enemy.prototype.isDestroyed = function(args) {
-    return this.destroyed;
-};
-
 
 /**
  * A wave of enemy ships, right now all it does is make a line of them
@@ -465,7 +353,7 @@ var Wave = function(args) {
     args.padding = args.padding || 50;
     args.vpadding = args.vpadding || 5;
     offsetY = (args.shipsPerRow.length - 1) * args.vpadding + args.shipsPerRow.length * this.enemyShipImage.height;
-    console.log(offsetY);
+ 
     var longestRow = (Array.max(args.shipsPerRow));
     var spacing = (this.shmup.width - 2 * args.padding) / (longestRow + 1);
     //console.log(args);
@@ -482,7 +370,8 @@ var Wave = function(args) {
                 x: startX + j * spacing,
                 y: args.vpadding + i * this.enemyShipImage.height - offsetY,
                 updateFunction: function() {
-                   this.y += 1;  
+                   this.y += 1;
+                   //this.x += Math.floor(Math.random() * 2);
                 }
             });  
             //console.log(startX + j * spacing);
@@ -493,23 +382,30 @@ var Wave = function(args) {
 
 Wave.prototype.draw = function(args) {
     for (var i = this.enemies.length - 1; i >= 0; i--) {
+        if (this.enemies[i].y > this.shmup.height) {
+            this.enemies.splice(i, 1);
+        }
+        else if(this.enemies[i].isDestroyed()) {
+            if(this.enemies[i].projectiles.length !== 0) {
+                this.enemies[i].drawProjectiles();
+            }
+            else {
+                this.enemies.splice(i, 1);
+            }
+        }
+        else {
+            if (Math.floor(Math.random() * 11900) + 1 == 3) {
+                this.enemies[i].fireOn();
+            }
+            this.enemies[i].draw({canvas: args.canvas});   
+        }
         //if the enemy is below the screen, delete it
         //else if the enemy is destroyed, 
             //if it still has projectiles, don't draw it, but draw the projectiles
             //else then delete it
         //else just draw it
-        if (this.enemies[i].y > this.shmup.height || this.enemies[i].isDestroyed()) {
-            this.enemies.splice(i, 1);
-        }
-        else {
-            if (Math.floor(Math.random() * 900) + 1 == 3) {
-                this.enemies[i].fireOn();
-            }
-            this.enemies[i].draw({canvas: args.canvas});            
-        }
     }
 };
-
 
 var Level = function(args) {
     this.shmup = args.shmup;
