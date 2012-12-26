@@ -1,5 +1,3 @@
-//BUG: if an enemy is destroyed and still has projectiles we still collision detect
-
 Array.max = function( array ){
     return Math.max.apply( Math, array );
 };
@@ -63,13 +61,17 @@ Engine.prototype.start = function(args) {
     setInterval(function() {
         //console.time('foo');
         this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
+        var i,j;
         
-
         /*---------------CHECK FOR COLLISIONS ---------------------- */
-        for (var i = 0; i < this.level.spawnedWaves.length; i++) {
+        for (i = 0; i < this.level.spawnedWaves.length; i++) {
             this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: this.player.projectiles});
-            for (var j = 0; j < this.level.spawnedWaves[i].enemies.length; j++) {
+            this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: [this.player]});
+            for (j = 0; j < this.level.spawnedWaves[i].enemies.length; j++) {
                 this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies[j].projectiles, secondList: [this.player]}); 
+            }
+            for (j = 0; j < this.level.spawnedWaves[i].destroyedEnemies.length; j++) {
+                this.checkForCollisions({firstList: this.level.spawnedWaves[i].destroyedEnemies[j].projectiles, secondList: [this.player]});
             }
         }
         
@@ -148,6 +150,7 @@ var FiringObject = function(args) {
     this.firing = false; //every frame we check if we are firing
     this.switchCannon({rate: 40, cannonOffsetLocations: [0.5], 
         ProjectileUpdateFunction: function() {
+            console.log(this.y);
             //this.x += 1000 * Math.sin(this.y / 10);
             this.y += 5;
         }
@@ -238,7 +241,7 @@ var Player = function(args) {
     
     this.switchCannon({rate: 8, cannonOffsetLocations: [0.5], 
         ProjectileUpdateFunction: function() {
-            this.x += 5 * Math.sin(this.y / 50);
+            //this.x += 5 * Math.sin(this.y / 50);
             this.y -= 10;
     }});
         
@@ -350,6 +353,7 @@ var Wave = function(args) {
     this.shmup = args.shmup;
     this.enemyShipImage = document.getElementById("enemy-ship");
     this.enemies = [];
+    this.destroyedEnemies = [];
     args.padding = args.padding || 50;
     args.vpadding = args.vpadding || 5;
     offsetY = (args.shipsPerRow.length - 1) * args.vpadding + args.shipsPerRow.length * this.enemyShipImage.height;
@@ -371,6 +375,7 @@ var Wave = function(args) {
                 y: args.vpadding + i * this.enemyShipImage.height - offsetY,
                 updateFunction: function() {
                    this.y += 1;
+                   this.x += 1;
                    //this.x += Math.floor(Math.random() * 2);
                 }
             });  
@@ -381,20 +386,23 @@ var Wave = function(args) {
 };
 
 Wave.prototype.draw = function(args) {
-    for (var i = this.enemies.length - 1; i >= 0; i--) {
+    var i;
+    for (i = this.enemies.length - 1; i >= 0; i--) {
         if (this.enemies[i].y > this.shmup.height) {
             this.enemies.splice(i, 1);
         }
         else if(this.enemies[i].isDestroyed()) {
-            if(this.enemies[i].projectiles.length !== 0) {
+            this.destroyedEnemies = this.destroyedEnemies.concat(this.enemies.splice(i, 1));
+            //add to destroyed enemies
+            /*if(this.enemies[i].projectiles.length !== 0) {
                 this.enemies[i].drawProjectiles();
             }
             else {
                 this.enemies.splice(i, 1);
-            }
+            }*/
         }
         else {
-            if (Math.floor(Math.random() * 11900) + 1 == 3) {
+            if (Math.floor(Math.random() * 900) + 1 == 3) {
                 this.enemies[i].fireOn();
             }
             this.enemies[i].draw({canvas: args.canvas});   
@@ -405,6 +413,16 @@ Wave.prototype.draw = function(args) {
             //else then delete it
         //else just draw it
     }
+    for (i = this.destroyedEnemies.length - 1; i >= 0; i--) {
+        if(this.destroyedEnemies[i].projectiles.length === 0) {
+            this.destroyedEnemies.splice(i, 1);
+        }
+        else {
+            this.destroyedEnemies[i].drawProjectiles();
+        }
+    }
+    //console.log(this.destroyedEnemies);
+    
 };
 
 var Level = function(args) {
