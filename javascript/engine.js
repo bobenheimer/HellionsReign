@@ -7,10 +7,12 @@ Array.max = function( array ){
  */
 var shmupApp = function() {
     var obj = document.getElementById('objects').getContext('2d');
+    var bullets = document.getElementById('bulletCanvas').getContext('2d');
     var appHeight = 700;
     var appWidth = 600;
     return {
         objectCanvas: obj,
+        bulletCanvas: bullets,
         height: appHeight,
         width: appWidth
     };
@@ -61,6 +63,7 @@ Engine.prototype.start = function(args) {
     setInterval(function() {
         //console.time('foo');
         this.shmup.objectCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
+        this.shmup.bulletCanvas.clearRect(0, 0, this.shmup.width, this.shmup.height);
         var i,j;
         
         /*---------------CHECK FOR COLLISIONS ---------------------- */
@@ -141,7 +144,7 @@ var FiringObject = function(args) {
     ShmupObject.call(this, args);
     
     /*------------GET IMAGES--------------- */
-    this.projectile = document.getElementById("projectile");
+    this.projectile = document.getElementById("enemybullet");
     
     this.projectiles = []; //all of the projectiles the PLAYER has firing on the screen
     this.newProjectiles = []; //new projectiles that will be added on the next frame refresh
@@ -173,7 +176,7 @@ FiringObject.prototype.fireOn = function(args) {
     }
 };
 
-FiringObject.prototype.drawProjectiles = function(args) {
+FiringObject.prototype.drawProjectiles = function() {
     var i;
 
     if (this.firing && this.fireFrameOffset % this.rate === 0) {
@@ -190,7 +193,7 @@ FiringObject.prototype.drawProjectiles = function(args) {
             this.projectiles.splice(i, 1);
         }
         else {
-            this.projectiles[i].draw({canvas: this.shmup.objectCanvas});
+            this.projectiles[i].draw({canvas: this.shmup.bulletCanvas});
         }
     }
     //if there are new projectiles, add them to the list
@@ -230,7 +233,7 @@ FiringObject.prototype.addProjectiles = function() {
 FiringObject.prototype.draw = function(args) {
     this.updateFunction();
     this.drawProjectiles();
-    this.shmup.objectCanvas.drawImage(this.image, this.x, this.y);
+    this.shmup.bulletCanvas.drawImage(this.image, this.x, this.y);
 };
 
 /**

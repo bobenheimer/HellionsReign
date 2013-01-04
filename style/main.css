@@ -12,16 +12,16 @@
     left: 0;
     top: 0;
  }
- 
 #background-top {
     z-index: 1;
 }
-
 #objects {
 
     z-index: 2;
 }
-
+#bulletCanvas {
+    z-index: 3;
+}
 #game-images {
     display: none;
 }
