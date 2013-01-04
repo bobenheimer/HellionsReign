@@ -375,7 +375,7 @@ var Wave = function(args) {
                 y: args.vpadding + i * this.enemyShipImage.height - offsetY,
                 updateFunction: function() {
                    this.y += 1;
-                   this.x += 1;
+                   //this.x += 1;
                    //this.x += Math.floor(Math.random() * 2);
                 }
             });  
