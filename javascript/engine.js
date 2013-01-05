@@ -265,12 +265,14 @@ Player.prototype = Object.create(FiringObject.prototype);
 Player.prototype.move = function(args) {
     if(args.which === 37 && this.moveX !== -1) {
         this.moveX = -1; //left
+        this.image = playerleft;
     }
     else if(args.which === 38 && this.moveY !== -1) {
         this.moveY = -1; //up
     }
     else if(args.which === 39 && this.moveX !== 1) {
         this.moveX = 1; //right
+        this.image = playerright;
     }
     else if(args.which === 40 && this.moveY !== 1) {
         this.moveY = 1; //down
@@ -283,12 +285,14 @@ Player.prototype.move = function(args) {
 Player.prototype.stopMove = function(args) {
     if(args.which === 37 && this.moveX === -1) {
         this.moveX = 0; //left
+        this.image = document.getElementById("player-ship");
     }
     else if(args.which === 38 && this.moveY === -1) {
         this.moveY = 0; //up
     }
     else if(args.which === 39 && this.moveX === 1) {
         this.moveX = 0; //right
+        this.image = document.getElementById("player-ship")
     }
     else if(args.which === 40 && this.moveY === 1) {
         this.moveY = 0; //down
