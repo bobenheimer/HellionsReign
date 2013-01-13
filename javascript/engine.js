@@ -8,13 +8,15 @@ Array.max = function( array ){
 var shmupApp = function() {
     var obj = document.getElementById('objects').getContext('2d');
     var bullets = document.getElementById('bulletCanvas').getContext('2d');
+    var hud = document.getElementById('hud').getContext('2d');
     var appHeight = 700;
     var appWidth = 600;
     return {
         objectCanvas: obj,
         bulletCanvas: bullets,
         height: appHeight,
-        width: appWidth
+        width: appWidth,
+        hudCanvas: hud
     };
 };
 
@@ -24,7 +26,7 @@ var shmupApp = function() {
 var Engine = function() {
     this.shmup = shmupApp();
     
-    this.player = new Player({shmup: this.shmup, image: document.getElementById("player-ship"), updateFunction: function(){}});
+    this.player = new Player({shmup: this.shmup, image: document.getElementById("player-ship"), updateFunction: function(){}, health: 5});
     this.frame = 0;
     
     for (var i = 0; i < levels.length; i++) {
@@ -68,13 +70,15 @@ Engine.prototype.start = function(args) {
         
         /*---------------CHECK FOR COLLISIONS ---------------------- */
         for (i = 0; i < this.level.spawnedWaves.length; i++) {
-            this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: this.player.projectiles});
-            this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: [this.player]});
-            for (j = 0; j < this.level.spawnedWaves[i].enemies.length; j++) {
-                this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies[j].projectiles, secondList: [this.player]}); 
-            }
-            for (j = 0; j < this.level.spawnedWaves[i].destroyedEnemies.length; j++) {
-                this.checkForCollisions({firstList: this.level.spawnedWaves[i].destroyedEnemies[j].projectiles, secondList: [this.player]});
+            if (!this.player.isDestroyed()) {
+                this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: this.player.projectiles});
+                this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies, secondList: [this.player]});
+                for (j = 0; j < this.level.spawnedWaves[i].enemies.length; j++) {
+                    this.checkForCollisions({firstList: this.level.spawnedWaves[i].enemies[j].projectiles, secondList: [this.player]}); 
+                }
+                for (j = 0; j < this.level.spawnedWaves[i].destroyedEnemies.length; j++) {
+                    this.checkForCollisions({firstList: this.level.spawnedWaves[i].destroyedEnemies[j].projectiles, secondList: [this.player]});
+                }
             }
         }
         
@@ -82,7 +86,11 @@ Engine.prototype.start = function(args) {
         if (!this.player.isDestroyed()) {
             this.player.draw();  //draw player
         }
-
+        else {
+            this.shmup.hudCanvas.font = 'italic 40px Calibri';
+            this.shmup.hudCanvas.fillText("YOU LOSE!!!", 10, 50);
+        }
+        
         this.frame += 1;
         //console.timeEnd('foo'); 
     }.bind(this), 20); 
@@ -121,6 +129,7 @@ var ShmupObject = function(args) {
     this.image = args.image;
     this.height = this.image.height;
     this.width = this.image.width;
+    this.health = args.health || 1;
     this.y = args.y;
     this.x = args.x;
     this.updateFunction = args.updateFunction.bind(this);
@@ -146,14 +155,12 @@ var FiringObject = function(args) {
     /*------------GET IMAGES--------------- */
     this.projectile = document.getElementById("enemybullet");
     
-    this.projectiles = []; //all of the projectiles the PLAYER has firing on the screen
-    this.newProjectiles = []; //new projectiles that will be added on the next frame refresh
+    this.projectiles = []; //all of the projectiles the object has firing on the screen
     this.cannonOffsetLocations = []; //the location of the cannons relative to the object
 
     this.firing = false; //every frame we check if we are firing
     this.switchCannon({rate: 40, cannonOffsetLocations: [0.5], 
         ProjectileUpdateFunction: function() {
-            console.log(this.y);
             //this.x += 1000 * Math.sin(this.y / 10);
             this.y += 5;
         }
@@ -182,11 +189,7 @@ FiringObject.prototype.drawProjectiles = function() {
     if (this.firing && this.fireFrameOffset % this.rate === 0) {
         this.addProjectiles();
     }
-    
-    //add new Projectiles to the list
-    for (i = 0; i < this.newProjectiles.length; i++) {
-        this.projectiles = this.projectiles.concat(this.newProjectiles.splice(0, this.newProjectiles.length));                          
-    }
+
     
     for (i = this.projectiles.length - 1; i >= 0; i--) {
         if (this.projectiles[i].y < 0 || this.projectiles[i].isDestroyed()) {
@@ -196,13 +199,7 @@ FiringObject.prototype.drawProjectiles = function() {
             this.projectiles[i].draw({canvas: this.shmup.bulletCanvas});
         }
     }
-    //if there are new projectiles, add them to the list
-    /*if (this.newProjectiles.length) {
-        for (i = 0; i < this.newProjectiles.length; i++) {
-                this.newProjectiles[i].draw({canvas: this.shmup.objectCanvas});                           
-        }
-        this.projectiles = this.projectiles.concat(this.newProjectiles.splice(0, this.newProjectiles.length));
-    }*/
+
     this.fireFrameOffset++;
 };
 
@@ -219,7 +216,7 @@ FiringObject.prototype.switchCannon = function(args) {
 
 FiringObject.prototype.addProjectiles = function() {
     for (var i = 0; i < this.numberOfGuns; i++) {
-        this.newProjectiles[i] = new ShmupObject({
+        this.projectiles[this.projectiles.length] = new ShmupObject({
             image: this.projectile, 
             height: this.projectile.height, 
             width: this.projectile.width,
@@ -292,7 +289,7 @@ Player.prototype.stopMove = function(args) {
     }
     else if(args.which === 39 && this.moveX === 1) {
         this.moveX = 0; //right
-        this.image = document.getElementById("player-ship")
+        this.image = document.getElementById("player-ship");
     }
     else if(args.which === 40 && this.moveY === 1) {
         this.moveY = 0; //down
@@ -331,9 +328,15 @@ Player.prototype.updateKeyboardLocation = function() {
     }
 };
 
+Player.prototype.collision = function() {
+    if(--this.health === 0) {
+        this.destroyed = true;
+    }
+};
 
 var Enemy = function(args) {
     FiringObject.call(this, args);
+    this.fireProbability = args.fireProbability || 4;
 };
 
 Enemy.prototype = Object.create(FiringObject.prototype); //Enemy extends Shmup Object
@@ -348,6 +351,37 @@ Enemy.prototype.collision = function(args) {
     this.firing = false;
 };
 
+Enemy.prototype.drawProjectiles = function() {
+    var i;
+
+    if (this.fireFrameOffset % this.rate === 0 && this.firing) {
+        if (Math.floor(Math.random() * 2) + 1 == 2) {
+            this.fireOff();
+        }
+        else {
+            this.addProjectiles();
+        }
+
+    }
+    else if (this.fireFrameOffset % this.rate === 0 && Math.floor(Math.random() * 6) + 1 == 3) {
+        this.fireOn();
+        this.addProjectiles();
+    }
+       
+    
+    for (i = this.projectiles.length - 1; i >= 0; i--) {
+        if (this.projectiles[i].y > this.shmup.height || this.projectiles[i].isDestroyed()) {
+            this.projectiles.splice(i, 1);
+        }
+        else {
+            this.projectiles[i].draw({canvas: this.shmup.bulletCanvas});
+        }
+    }
+
+    this.fireFrameOffset++;
+};
+
+
 /**
  * A wave of enemy ships, right now all it does is make a line of them
  */
@@ -361,17 +395,15 @@ var Wave = function(args) {
     this.enemyShipImage = document.getElementById("enemy-ship");
     this.enemies = [];
     this.destroyedEnemies = [];
-    args.padding = args.padding || 50;
+    args.padding = args.padding || 0;
     args.vpadding = args.vpadding || 5;
     offsetY = (args.shipsPerRow.length - 1) * args.vpadding + args.shipsPerRow.length * this.enemyShipImage.height;
  
     var longestRow = (Array.max(args.shipsPerRow));
     var spacing = (this.shmup.width - 2 * args.padding) / (longestRow + 1);
-    //console.log(args);
     for(var i = 0; i < args.shipsPerRow.length; i++) {
         //startX = this.shmup.width / 2 - ((args.shipsPerRow[i] - 1) / 2) * spacing - (this.enemyShipImage.height / 2);
         startX = args.padding + spacing + ((longestRow - args.shipsPerRow[i]) / 2) * spacing - (this.enemyShipImage.height / 2);
-        //console.log(startX); //shuld be 216.67
         for (var j = 0; j < args.shipsPerRow[i]; j++) {
             this.enemies[this.enemies.length] = new Enemy({
                 shmup: this.shmup,
@@ -386,7 +418,6 @@ var Wave = function(args) {
                    //this.x += Math.floor(Math.random() * 2);
                 }
             });  
-            //console.log(startX + j * spacing);
         }
     }
 
@@ -409,9 +440,9 @@ Wave.prototype.draw = function(args) {
             }*/
         }
         else {
-            if (Math.floor(Math.random() * 900) + 1 == 3) {
+            /** if (Math.floor(Math.random() * 900) + 1 == 3) {
                 this.enemies[i].fireOn();
-            }
+            }*/
             this.enemies[i].draw({canvas: args.canvas});   
         }
         //if the enemy is below the screen, delete it
@@ -420,6 +451,9 @@ Wave.prototype.draw = function(args) {
             //else then delete it
         //else just draw it
     }
+    //if (this.destroyedEnemies.length)
+        //console.log(this.destroyedEnemies[0].projectiles.length);
+    
     for (i = this.destroyedEnemies.length - 1; i >= 0; i--) {
         if(this.destroyedEnemies[i].projectiles.length === 0) {
             this.destroyedEnemies.splice(i, 1);
@@ -468,7 +502,7 @@ Level.prototype.update = function(args) {
     //console.log(this.waves[this.nextWaveIndex]);
     
     for (var i = this.spawnedWaves.length - 1; i >= 0; i--) {
-        if(this.spawnedWaves[i].enemies.length === 0) {
+        if(this.spawnedWaves[i].enemies.length === 0 && this.spawnedWaves[i].destroyedEnemies.length === 0) {
             this.spawnedWaves.splice(i, 1);
         }
         else {
