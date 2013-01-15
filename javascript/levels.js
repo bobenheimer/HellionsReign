@@ -1,4 +1,4 @@
-levels = [
+var levels = [
     {   
         waves: [
             {
@@ -23,17 +23,17 @@ levels = [
                 spawnTime: 200
             }
         ]
-    }, 
-             
-          
-         
-          
-          
-            
-          
-          
-          
-          
-          
+    },        
 ];
 
+/*levels = [
+          {   
+              waves: [
+                  {
+                      shipsPerRow: [1],
+                      waitForPreviousSpawn: false,
+                      spawnTime: 10
+                  }
+              ]
+          },        
+      ];*/
